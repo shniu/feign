@@ -79,14 +79,16 @@ final class SynchronousMethodHandler implements MethodHandler {
     }
   }
 
+  // 这里就是实际执行请求的地方，被代理的对象调用，会走到这里
   @Override
   public Object invoke(Object[] argv) throws Throwable {
+    // 使用请求参数构造一个 RequestTemplate
     RequestTemplate template = buildTemplateFromArgs.create(argv);
     Options options = findOptions(argv);
-    Retryer retryer = this.retryer.clone();
+    Retryer retryer = this.retryer.clone();   // Retry 策略的实现
     while (true) {
       try {
-        return executeAndDecode(template, options);
+        return executeAndDecode(template, options);  // 调用成功，正常返回
       } catch (RetryableException e) {
         try {
           retryer.continueOrPropagate(e);
@@ -106,7 +108,9 @@ final class SynchronousMethodHandler implements MethodHandler {
     }
   }
 
+  // 执行请求，并解析 Response
   Object executeAndDecode(RequestTemplate template, Options options) throws Throwable {
+    // 生产 Request 对象，使用了 Target 的 apply
     Request request = targetRequest(template);
 
     if (logLevel != Logger.Level.NONE) {
@@ -116,6 +120,7 @@ final class SynchronousMethodHandler implements MethodHandler {
     Response response;
     long start = System.nanoTime();
     try {
+      // 执行请求的地方，调用第三方的 client 实现，比如 HC / OkHttp etc.
       response = client.execute(request, options);
       // ensure the request is set. TODO: remove in Feign 12
       response = response.toBuilder()
@@ -132,6 +137,7 @@ final class SynchronousMethodHandler implements MethodHandler {
 
 
     if (decoder != null)
+      // 对 response 进行解码
       return decoder.decode(response, metadata.returnType());
 
     CompletableFuture<Object> resultFuture = new CompletableFuture<>();

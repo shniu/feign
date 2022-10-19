@@ -50,22 +50,27 @@ public class ReflectiveFeign extends Feign {
     Map<Method, MethodHandler> methodToHandler = new LinkedHashMap<Method, MethodHandler>();
     List<DefaultMethodHandler> defaultMethodHandlers = new LinkedList<DefaultMethodHandler>();
 
+    // 取目标类的所有声明的方法
     for (Method method : target.type().getMethods()) {
-      if (method.getDeclaringClass() == Object.class) {
+      if (method.getDeclaringClass() == Object.class) {   // 如果是 Object 的方法，忽略掉
         continue;
-      } else if (Util.isDefault(method)) {
+      } else if (Util.isDefault(method)) {    // 如果是 default 方法
         DefaultMethodHandler handler = new DefaultMethodHandler(method);
         defaultMethodHandlers.add(handler);
         methodToHandler.put(method, handler);
       } else {
+        // 从 nameToHandler 中取出同名的方法对应的 MethodHandler，和 Method 进行绑定
         methodToHandler.put(method, nameToHandler.get(Feign.configKey(target.type(), method)));
       }
     }
+
+    // 为目标类构造 InvocationHandler，用于在 Proxy 时的实际处理的 Handler
     InvocationHandler handler = factory.create(target, methodToHandler);
     T proxy = (T) Proxy.newProxyInstance(target.type().getClassLoader(),
         new Class<?>[] {target.type()}, handler);
 
     for (DefaultMethodHandler defaultMethodHandler : defaultMethodHandlers) {
+      // 把 默认方法 也绑定到 代理对象上
       defaultMethodHandler.bindTo(proxy);
     }
     return proxy;
@@ -73,7 +78,10 @@ public class ReflectiveFeign extends Feign {
 
   static class FeignInvocationHandler implements InvocationHandler {
 
+    // 表示目标类，包括 class / name / url / apply 生产 Request
     private final Target target;
+    // 方法的 handler 路由，通过方法找到对应的 handler，比如在实际使用时 github.getRepo(....)
+    // 这里的 method 就是 Github#getRepo(...)，找到了 MethodHandler，进行 invoke
     private final Map<Method, MethodHandler> dispatch;
 
     FeignInvocationHandler(Target target, Map<Method, MethodHandler> dispatch) {
@@ -97,6 +105,7 @@ public class ReflectiveFeign extends Feign {
         return toString();
       }
 
+      // 根据 method 找到 handler，执行 invoke
       return dispatch.get(method).invoke(args);
     }
 
@@ -148,6 +157,9 @@ public class ReflectiveFeign extends Feign {
     }
 
     public Map<String, MethodHandler> apply(Target target) {
+      // 从被 @FeignClient 注解的接口中解析出来需要被 Proxy 的 methods
+      // contract 是一个契约，这个契约用来定义和解析如何使用注解，有点 DSL 的味道，通过易懂的描述性语言来定义请求-响应的期望行为
+      // 目前 contract 有多套，常用的有 feign.Contract.Default 和 SpringMvcContract
       List<MethodMetadata> metadata = contract.parseAndValidateMetadata(target.type());
       Map<String, MethodHandler> result = new LinkedHashMap<String, MethodHandler>();
       for (MethodMetadata md : metadata) {

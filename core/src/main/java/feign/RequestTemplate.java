@@ -1026,6 +1026,7 @@ public final class RequestTemplate implements Serializable {
 
     /**
      * create a request template using args passed to a method invocation.
+     * 使用方法参数来构建一个 RequestTemplate
      */
     RequestTemplate create(Object[] argv);
   }

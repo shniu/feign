@@ -126,7 +126,10 @@ public class RibbonClient implements Client {
 
     Builder() {}
 
+    // 可以传入一个委托的 client 实例，比如 OkHttp 的实例 / Apache HttpClient 等
     private Client delegate;
+    // 这个用来关联 Ribbon 的实现，比如 loadbalancer 的能力 / retry etc.
+    // 需要配合服务发现
     private LBClientFactory lbClientFactory;
 
     public Builder delegate(Client delegate) {
